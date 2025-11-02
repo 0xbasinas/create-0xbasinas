@@ -1,6 +1,6 @@
 {
   "name": "create-0xbasinas",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A CLI tool to create Next.js 16 projects with shadcn/ui pre-configured",
   "main": "index.js",
   "scripts": {

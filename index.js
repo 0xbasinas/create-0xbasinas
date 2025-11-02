@@ -156,6 +156,10 @@ async function main() {
     console.log('\n🔧 Setting up proxy middleware...');
     await createProxyMiddleware();
 
+    // Set up Fumadocs for documentation
+    console.log('\n📚 Setting up Fumadocs documentation...');
+    await setupFumadocs();
+
     console.log('\n✅ Setup complete! To start developing:');
     console.log(`📁 cd ${projectName}`);
     console.log('🚀 npm run dev');
@@ -1328,6 +1332,340 @@ async function execWithRetry(command, args, options = {}) {
     3,
     2000
   );
+}
+
+/**
+ * Sets up Fumadocs for documentation with isolated layout
+ * @async
+ * @returns {Promise<void>}
+ */
+async function setupFumadocs() {
+  // Install Fumadocs dependencies
+  await execWithRetry('npm', [
+    'install',
+    'fumadocs-ui',
+    'fumadocs-core',
+    'fumadocs-mdx',
+    'fumadocs-typescript',
+    'shiki'
+  ], { stdio: 'inherit' });
+
+  // Create docs directory structure
+  await mkdir('content/docs', { recursive: true });
+
+  // Create source configuration
+  await createDocsSourceConfig();
+
+  // Create isolated docs layout (doesn't inherit from root layout)
+  await createIsolatedDocsLayout();
+
+  // Create docs page
+  await createDocsPage();
+
+  // Create sample documentation content
+  await createDocsContent();
+
+  // Update header to include docs link
+  await updateHeaderWithDocsLink();
+
+  // Create MDX components for docs
+  await createMDXComponents();
+}
+
+/**
+ * Creates the source configuration for Fumadocs
+ * @async
+ * @returns {Promise<void>}
+ */
+async function createDocsSourceConfig() {
+  const sourceConfigContent = `import { loader } from 'fumadocs-core/source';
+import { createMDXSource } from 'fumadocs-mdx';
+import { icons } from 'lucide-react';
+import { createElement } from 'react';
+
+export const source = loader({
+  baseUrl: '/docs',
+  source: createMDXSource({
+    rootDir: 'content/docs',
+  }),
+  icon(icon) {
+    if (icon && icon in icons)
+      return createElement(icons[icon as keyof typeof icons]);
+  },
+});
+`;
+
+  await writeFileWithDir('lib/source.ts', sourceConfigContent);
+}
+
+/**
+ * Creates an isolated layout for docs that doesn't inherit root layout
+ * @async
+ * @returns {Promise<void>}
+ */
+async function createIsolatedDocsLayout() {
+  const docsLayoutContent = `import '../globals.css';
+import { RootProvider } from 'fumadocs-ui/provider';
+import { Inter } from 'next/font/google';
+import type { ReactNode } from 'react';
+
+const inter = Inter({
+  subsets: ['latin'],
+});
+
+export default function DocsLayout({ children }: { children: ReactNode }) {
+  return (
+    <html lang="en" className={inter.className} suppressHydrationWarning>
+      <body className="flex flex-col min-h-screen">
+        <RootProvider>
+          {children}
+        </RootProvider>
+      </body>
+    </html>
+  );
+}
+`;
+
+  await writeFileWithDir('app/docs/layout.tsx', docsLayoutContent);
+}
+
+/**
+ * Creates the docs page component
+ * @async
+ * @returns {Promise<void>}
+ */
+async function createDocsPage() {
+  const docsPageContent = `import { source } from '@/lib/source';
+import {
+  DocsPage,
+  DocsBody,
+  DocsDescription,
+  DocsTitle,
+} from 'fumadocs-ui/page';
+import { notFound } from 'next/navigation';
+import defaultMdxComponents from 'fumadocs-ui/mdx';
+
+export default async function Page({
+  params,
+}: {
+  params: { slug?: string[] };
+}) {
+  const page = source.getPage(params.slug);
+  if (!page) notFound();
+
+  const MDX = page.data.body;
+
+  return (
+    <DocsPage
+      toc={page.data.toc}
+      full={page.data.full}
+      tableOfContent={{
+        style: 'clerk',
+      }}
+    >
+      <DocsTitle>{page.data.title}</DocsTitle>
+      <DocsDescription>{page.data.description}</DocsDescription>
+      <DocsBody>
+        <MDX components={{ ...defaultMdxComponents }} />
+      </DocsBody>
+    </DocsPage>
+  );
+}
+
+export async function generateStaticParams() {
+  return source.generateParams();
+}
+
+export function generateMetadata({ params }: { params: { slug?: string[] } }) {
+  const page = source.getPage(params.slug);
+  if (!page) notFound();
+
+  return {
+    title: page.data.title,
+    description: page.data.description,
+  };
+}
+`;
+
+  await writeFileWithDir('app/docs/[[...slug]]/page.tsx', docsPageContent);
+}
+
+/**
+ * Creates sample documentation content
+ * @async
+ * @returns {Promise<void>}
+ */
+async function createDocsContent() {
+  // Create index page
+  const indexContent = \`---
+title: Introduction
+description: Welcome to the documentation
+---
+
+## Welcome
+
+This is your documentation site built with Fumadocs and Next.js 16.
+
+### Features
+
+- 📝 MDX support with React components
+- 🎨 Beautiful UI with dark mode
+- 🔍 Built-in search functionality
+- ⚡ Fast and performant
+- 📱 Fully responsive design
+
+### Getting Started
+
+Check out the [Quick Start](/docs/quick-start) guide to begin.
+
+### Examples
+
+\\\`\\\`\\\`typescript
+// Example TypeScript code
+function hello(name: string): string {
+  return \\\`Hello, \\\${name}!\\\`;
+}
+\\\`\\\`\\\`
+\`;
+
+  const quickStartContent = \`---
+title: Quick Start
+description: Get started with your application
+---
+
+## Installation
+
+Install the dependencies:
+
+\\\`\\\`\\\`bash
+npm install
+\\\`\\\`\\\`
+
+## Development
+
+Run the development server:
+
+\\\`\\\`\\\`bash
+npm run dev
+\\\`\\\`\\\`
+
+Open [http://localhost:3000](http://localhost:3000) to see your app.
+
+## Building for Production
+
+Build your application:
+
+\\\`\\\`\\\`bash
+npm run build
+\\\`\\\`\\\`
+
+Start the production server:
+
+\\\`\\\`\\\`bash
+npm start
+\\\`\\\`\\\`
+\`;
+
+  const apiContent = \`---
+title: API Reference
+description: Complete API documentation
+---
+
+## API Overview
+
+This page contains the complete API reference for your application.
+
+### Core Methods
+
+#### \\\`hello(name: string)\\\`
+
+Returns a greeting message.
+
+**Parameters:**
+- \\\`name\\\` (string): The name to greet
+
+**Returns:**
+- string: A greeting message
+
+**Example:**
+
+\\\`\\\`\\\`typescript
+const message = hello("World");
+console.log(message); // "Hello, World!"
+\\\`\\\`\\\`
+\`;
+
+  await writeFileWithDir('content/docs/index.mdx', indexContent);
+  await writeFileWithDir('content/docs/quick-start.mdx', quickStartContent);
+  await writeFileWithDir('content/docs/api.mdx', apiContent);
+
+  // Create meta.json for sidebar configuration
+  const metaContent = JSON.stringify({
+    "title": "Documentation",
+    "pages": ["index", "quick-start", "api"]
+  }, null, 2);
+
+  await writeFileWithDir('content/docs/meta.json', metaContent);
+}
+
+/**
+ * Updates the header to include a docs link
+ * @async
+ * @returns {Promise<void>}
+ */
+async function updateHeaderWithDocsLink() {
+  const headerPath = 'components/header.tsx';
+  let headerContent = await readFile(headerPath, 'utf-8');
+
+  // Add docs link to desktop navigation
+  if (!headerContent.includes('href="/docs"')) {
+    headerContent = headerContent.replace(
+      /<HoverPrefetchLink href="\/contact">/,
+      \`<HoverPrefetchLink href="/docs">
+            <span className="text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white transition-colors">
+              Docs
+            </span>
+          </HoverPrefetchLink>
+          <HoverPrefetchLink href="/contact">\`
+    );
+
+    // Add docs link to mobile menu
+    headerContent = headerContent.replace(
+      /<Link\s+href="\/contact"\s+onClick=\{[^}]+\}\s*>/,
+      \`<Link
+              href="/docs"
+              onClick={() => setOpen(false)}
+            >
+              Docs
+            </Link>
+            <Link
+              href="/contact"
+              onClick={() => setOpen(false)}
+            >\`
+    );
+
+    await writeFile(headerPath, headerContent);
+  }
+}
+
+/**
+ * Creates MDX components configuration
+ * @async
+ * @returns {Promise<void>}
+ */
+async function createMDXComponents() {
+  const mdxComponentsContent = \`import type { MDXComponents } from 'mdx/types';
+import defaultComponents from 'fumadocs-ui/mdx';
+
+export function useMDXComponents(components: MDXComponents): MDXComponents {
+  return {
+    ...defaultComponents,
+    ...components,
+  };
+}
+\`;
+
+  await writeFileWithDir('mdx-components.tsx', mdxComponentsContent);
 }
 
 main();
