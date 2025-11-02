@@ -160,6 +160,10 @@ async function main() {
     console.log('\n📚 Setting up Fumadocs documentation...');
     await setupFumadocs();
 
+    // Reorganize into route groups for isolated layouts
+    console.log('\n📁 Organizing route groups for isolated layouts...');
+    await organizeRouteGroups();
+
     console.log('\n✅ Setup complete! To start developing:');
     console.log(`📁 cd ${projectName}`);
     console.log('🚀 npm run dev');
@@ -1099,30 +1103,31 @@ export default function robots(): MetadataRoute.Robots {
 
 async function createOptimizedNextConfig() {
   const nextConfigContent = `import type { NextConfig } from "next"
+import { createMDX } from 'fumadocs-mdx/next'
 
 const nextConfig: NextConfig = {
   // Performance optimizations
   compress: true, // Enable gzip compression
   poweredByHeader: false, // Remove X-Powered-By header
-  
+
   // Turbopack is enabled by default in Next.js 16
   turbopack: {
     // Turbopack already optimizes bundles automatically
     // No additional config needed for most cases
   },
-  
+
   experimental: {
     optimizePackageImports: ['lucide-react', '@radix-ui/react-*', 'next-themes'],
     // Faster server component rendering
     serverComponentsHmrCache: true,
   },
-  
+
   logging: {
     fetches: {
       fullUrl: true,
     },
   },
-  
+
   images: {
     formats: ['image/avif', 'image/webp'], // Use modern formats
     remotePatterns: [
@@ -1141,7 +1146,9 @@ const nextConfig: NextConfig = {
   },
 }
 
-export default nextConfig
+const withMDX = createMDX()
+
+export default withMDX(nextConfig)
 `;
 
   await writeFile('next.config.ts', nextConfigContent);
@@ -1353,6 +1360,9 @@ async function setupFumadocs() {
   // Create docs directory structure
   await mkdir('content/docs', { recursive: true });
 
+  // Create source.config.ts for Fumadocs
+  await createSourceConfig();
+
   // Create source configuration
   await createDocsSourceConfig();
 
@@ -1370,6 +1380,68 @@ async function setupFumadocs() {
 
   // Create MDX components for docs
   await createMDXComponents();
+
+  // Update package.json scripts to include fumadocs-mdx
+  await updatePackageJsonScripts();
+
+  // Update globals.css to include Fumadocs styles
+  await updateGlobalsCssForFumadocs();
+
+  // Generate .source folder
+  console.log('\n📁 Generating documentation source files...');
+  await execWithRetry('npx', ['fumadocs-mdx'], { stdio: 'inherit' });
+}
+
+/**
+ * Updates globals.css to include Fumadocs UI styles
+ * @async
+ * @returns {Promise<void>}
+ */
+async function updateGlobalsCssForFumadocs() {
+  const globalsCssPath = 'app/globals.css';
+  let globalsCssContent = await readFile(globalsCssPath, 'utf-8');
+
+  // Add Fumadocs imports after tailwindcss import
+  if (!globalsCssContent.includes('fumadocs-ui/css')) {
+    globalsCssContent = globalsCssContent.replace(
+      /@import "tailwindcss";\s*\n@import "tw-animate-css";/,
+      `@import "tailwindcss";\n@import "tw-animate-css";\n@import "fumadocs-ui/css/neutral.css";\n@import "fumadocs-ui/css/preset.css";\n\n@source "../node_modules/fumadocs-ui/dist/**/*.js";`
+    );
+
+    await writeFile(globalsCssPath, globalsCssContent);
+  }
+}
+
+/**
+ * Updates package.json scripts to include fumadocs-mdx command
+ * @async
+ * @returns {Promise<void>}
+ */
+async function updatePackageJsonScripts() {
+  const packageJsonPath = 'package.json';
+  const packageJson = JSON.parse(await readFile(packageJsonPath, 'utf-8'));
+
+  // Update dev and build scripts to include fumadocs-mdx
+  packageJson.scripts.dev = 'fumadocs-mdx && next dev';
+  packageJson.scripts.build = 'fumadocs-mdx && next build';
+
+  await writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2) + '\n');
+}
+
+/**
+ * Creates the source.config.ts file for Fumadocs
+ * @async
+ * @returns {Promise<void>}
+ */
+async function createSourceConfig() {
+  const sourceConfigContent = `import { defineDocs } from 'fumadocs-mdx/config';
+
+export const { docs, meta } = defineDocs({
+  dir: 'content/docs',
+});
+`;
+
+  await writeFileWithDir('source.config.ts', sourceConfigContent);
 }
 
 /**
@@ -1379,15 +1451,14 @@ async function setupFumadocs() {
  */
 async function createDocsSourceConfig() {
   const sourceConfigContent = `import { loader } from 'fumadocs-core/source';
-import { createMDXSource } from 'fumadocs-mdx';
+import { createMDXSource } from 'fumadocs-mdx/runtime/next';
+import { docs, meta } from '@/.source';
 import { icons } from 'lucide-react';
 import { createElement } from 'react';
 
 export const source = loader({
   baseUrl: '/docs',
-  source: createMDXSource({
-    rootDir: 'content/docs',
-  }),
+  source: createMDXSource(docs, meta),
   icon(icon) {
     if (icon && icon in icons)
       return createElement(icons[icon as keyof typeof icons]);
@@ -1406,19 +1477,26 @@ export const source = loader({
 async function createIsolatedDocsLayout() {
   const docsLayoutContent = `import '../globals.css';
 import { RootProvider } from 'fumadocs-ui/provider';
-import { Inter } from 'next/font/google';
+import { DocsLayout } from 'fumadocs-ui/layouts/docs';
 import type { ReactNode } from 'react';
+import { source } from '@/lib/source';
 
-const inter = Inter({
-  subsets: ['latin'],
-});
-
-export default function DocsLayout({ children }: { children: ReactNode }) {
+export default function Layout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={inter.className} suppressHydrationWarning>
-      <body className="flex flex-col min-h-screen">
+    <html lang="en" suppressHydrationWarning>
+      <body>
         <RootProvider>
-          {children}
+          <DocsLayout
+            tree={source.pageTree}
+            nav={{
+              title: process.env.NEXT_PUBLIC_APP_NAME || 'Documentation',
+            }}
+            sidebar={{
+              defaultOpenLevel: 0,
+            }}
+          >
+            {children}
+          </DocsLayout>
         </RootProvider>
       </body>
     </html>
@@ -1448,9 +1526,10 @@ import defaultMdxComponents from 'fumadocs-ui/mdx';
 export default async function Page({
   params,
 }: {
-  params: { slug?: string[] };
+  params: Promise<{ slug?: string[] }>;
 }) {
-  const page = source.getPage(params.slug);
+  const { slug } = await params;
+  const page = source.getPage(slug);
   if (!page) notFound();
 
   const MDX = page.data.body;
@@ -1476,8 +1555,9 @@ export async function generateStaticParams() {
   return source.generateParams();
 }
 
-export function generateMetadata({ params }: { params: { slug?: string[] } }) {
-  const page = source.getPage(params.slug);
+export async function generateMetadata({ params }: { params: Promise<{ slug?: string[] }> }) {
+  const { slug } = await params;
+  const page = source.getPage(slug);
   if (!page) notFound();
 
   return {
@@ -1497,7 +1577,7 @@ export function generateMetadata({ params }: { params: { slug?: string[] } }) {
  */
 async function createDocsContent() {
   // Create index page
-  const indexContent = \`---
+  const indexContent = `---
 title: Introduction
 description: Welcome to the documentation
 ---
@@ -1520,15 +1600,15 @@ Check out the [Quick Start](/docs/quick-start) guide to begin.
 
 ### Examples
 
-\\\`\\\`\\\`typescript
+\`\`\`typescript
 // Example TypeScript code
 function hello(name: string): string {
-  return \\\`Hello, \\\${name}!\\\`;
+  return \`Hello, \${name}!\`;
 }
-\\\`\\\`\\\`
-\`;
+\`\`\`
+`;
 
-  const quickStartContent = \`---
+  const quickStartContent = `---
 title: Quick Start
 description: Get started with your application
 ---
@@ -1537,17 +1617,17 @@ description: Get started with your application
 
 Install the dependencies:
 
-\\\`\\\`\\\`bash
+\`\`\`bash
 npm install
-\\\`\\\`\\\`
+\`\`\`
 
 ## Development
 
 Run the development server:
 
-\\\`\\\`\\\`bash
+\`\`\`bash
 npm run dev
-\\\`\\\`\\\`
+\`\`\`
 
 Open [http://localhost:3000](http://localhost:3000) to see your app.
 
@@ -1555,18 +1635,18 @@ Open [http://localhost:3000](http://localhost:3000) to see your app.
 
 Build your application:
 
-\\\`\\\`\\\`bash
+\`\`\`bash
 npm run build
-\\\`\\\`\\\`
+\`\`\`
 
 Start the production server:
 
-\\\`\\\`\\\`bash
+\`\`\`bash
 npm start
-\\\`\\\`\\\`
-\`;
+\`\`\`
+`;
 
-  const apiContent = \`---
+  const apiContent = `---
 title: API Reference
 description: Complete API documentation
 ---
@@ -1577,23 +1657,23 @@ This page contains the complete API reference for your application.
 
 ### Core Methods
 
-#### \\\`hello(name: string)\\\`
+#### \`hello(name: string)\`
 
 Returns a greeting message.
 
 **Parameters:**
-- \\\`name\\\` (string): The name to greet
+- \`name\` (string): The name to greet
 
 **Returns:**
 - string: A greeting message
 
 **Example:**
 
-\\\`\\\`\\\`typescript
+\`\`\`typescript
 const message = hello("World");
 console.log(message); // "Hello, World!"
-\\\`\\\`\\\`
-\`;
+\`\`\`
+`;
 
   await writeFileWithDir('content/docs/index.mdx', indexContent);
   await writeFileWithDir('content/docs/quick-start.mdx', quickStartContent);
@@ -1621,18 +1701,18 @@ async function updateHeaderWithDocsLink() {
   if (!headerContent.includes('href="/docs"')) {
     headerContent = headerContent.replace(
       /<HoverPrefetchLink href="\/contact">/,
-      \`<HoverPrefetchLink href="/docs">
+      `<HoverPrefetchLink href="/docs">
             <span className="text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white transition-colors">
               Docs
             </span>
           </HoverPrefetchLink>
-          <HoverPrefetchLink href="/contact">\`
+          <HoverPrefetchLink href="/contact">`
     );
 
     // Add docs link to mobile menu
     headerContent = headerContent.replace(
       /<Link\s+href="\/contact"\s+onClick=\{[^}]+\}\s*>/,
-      \`<Link
+      `<Link
               href="/docs"
               onClick={() => setOpen(false)}
             >
@@ -1641,7 +1721,7 @@ async function updateHeaderWithDocsLink() {
             <Link
               href="/contact"
               onClick={() => setOpen(false)}
-            >\`
+            >`
     );
 
     await writeFile(headerPath, headerContent);
@@ -1654,7 +1734,7 @@ async function updateHeaderWithDocsLink() {
  * @returns {Promise<void>}
  */
 async function createMDXComponents() {
-  const mdxComponentsContent = \`import type { MDXComponents } from 'mdx/types';
+  const mdxComponentsContent = `import type { MDXComponents } from 'mdx/types';
 import defaultComponents from 'fumadocs-ui/mdx';
 
 export function useMDXComponents(components: MDXComponents): MDXComponents {
@@ -1663,9 +1743,92 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     ...components,
   };
 }
-\`;
+`;
 
   await writeFileWithDir('mdx-components.tsx', mdxComponentsContent);
+}
+
+/**
+ * Organizes the app into route groups for isolated layouts
+ * Moves main app pages into (main) route group, keeping docs separate
+ * @async
+ * @returns {Promise<void>}
+ */
+async function organizeRouteGroups() {
+  const { rename } = await import('fs/promises');
+
+  // Create (main) route group directory
+  await mkdir('app/(main)', { recursive: true });
+
+  // Move main app files to (main) route group
+  const mainFiles = ['layout.tsx', 'page.tsx', 'error.tsx', 'loading.tsx', 'not-found.tsx'];
+  const mainDirs = ['about', 'contact', 'get-started', 'privacy', 'terms'];
+
+  for (const file of mainFiles) {
+    const srcPath = `app/${file}`;
+    const destPath = `app/(main)/${file}`;
+    try {
+      await rename(srcPath, destPath);
+    } catch (error) {
+      // File might not exist, continue
+    }
+  }
+
+  for (const dir of mainDirs) {
+    const srcPath = `app/${dir}`;
+    const destPath = `app/(main)/${dir}`;
+    try {
+      await rename(srcPath, destPath);
+    } catch (error) {
+      // Directory might not exist, continue
+    }
+  }
+
+  // Update (main) layout to fix globals.css import path
+  const mainLayoutPath = 'app/(main)/layout.tsx';
+  try {
+    let mainLayoutContent = await readFile(mainLayoutPath, 'utf-8');
+    mainLayoutContent = mainLayoutContent.replace(
+      /import "\.\/globals\.css";/g,
+      'import "../globals.css";'
+    );
+    await writeFile(mainLayoutPath, mainLayoutContent);
+  } catch (error) {
+    // Layout might not exist yet
+  }
+
+  // Update docs layout to be cleaner and isolated with proper configuration
+  const docsLayoutPath = 'app/docs/layout.tsx';
+  const docsLayoutContent = `import '../globals.css';
+import { RootProvider } from 'fumadocs-ui/provider';
+import { DocsLayout } from 'fumadocs-ui/layouts/docs';
+import type { ReactNode } from 'react';
+import { source } from '@/lib/source';
+
+export default function Layout({ children }: { children: ReactNode }) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <body>
+        <RootProvider>
+          <DocsLayout
+            tree={source.pageTree}
+            nav={{
+              title: process.env.NEXT_PUBLIC_APP_NAME || 'Documentation',
+            }}
+            sidebar={{
+              defaultOpenLevel: 0,
+            }}
+          >
+            {children}
+          </DocsLayout>
+        </RootProvider>
+      </body>
+    </html>
+  );
+}
+`;
+
+  await writeFile(docsLayoutPath, docsLayoutContent);
 }
 
 main();
