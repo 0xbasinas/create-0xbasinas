@@ -1,0 +1,34 @@
+{
+  "name": "create-0xbasinas",
+  "version": "1.0.0",
+  "description": "A CLI tool to create Next.js 16 projects with shadcn/ui pre-configured",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepublishOnly": "chmod +x index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/0xbasinas/create-0xbasinas.git"
+  },
+  "keywords": [
+    "nextjs",
+    "shadcn",
+    "cli",
+    "create-app",
+    "typescript"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/0xbasinas/create-0xbasinas/issues"
+  },
+  "homepage": "https://github.com/0xbasinas/create-0xbasinas#readme",
+  "bin": {
+    "create-0xbasinas": "./index.js"
+  },
+  "dependencies": {
+    "execa": "^9.6.0"
+  }
+}
