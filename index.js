@@ -67,9 +67,10 @@ async function main() {
     await execWithRetry('npx', [
       'shadcn@latest',
       'init',
-      '--yes',           // Skip confirmation prompt
-      '--css-variables',  // Use CSS variables for theming
-      '--base-color', 'neutral'
+      '-t', 'next',
+      '-b', 'neutral',
+      '--css-variables',
+      '-y'
     ], { stdio: 'inherit' });
 
     // Install all shadcn/ui components
