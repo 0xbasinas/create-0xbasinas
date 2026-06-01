@@ -44,6 +44,9 @@ async function main() {
   }
 
   try {
+    // Capture high-resolution start timestamp for execution timer
+    const startTime = process.hrtime.bigint();
+
     // Run create-next-app with Next.js 16 specific options
     console.log('🚀 Setting up Next.js 16 project...');
     await execWithRetry('npx', [
@@ -168,6 +171,11 @@ async function main() {
     console.log(`📁 cd ${projectName}`);
     console.log('🚀 npm run dev');
     console.log('\n✨ Your Next.js 16 app with shadcn/ui and dark mode is ready!');
+
+    // Capture high-resolution end timestamp and report total execution time
+    const endTime = process.hrtime.bigint();
+    const elapsedSeconds = (Number(endTime - startTime) / 1e9).toFixed(2);
+    console.log(`\n⏱️  Total execution time: \x1b[36m${elapsedSeconds}s\x1b[0m`);
 
   } catch (error) {
     console.error('\n❌ Error during setup:', error.message);
