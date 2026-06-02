@@ -4,6 +4,67 @@ import { writeFile, mkdir, readFile } from 'fs/promises';
 import { join } from 'path';
 
 /**
+ * Displays a beautiful welcome banner with project info
+ * @param {string} projectName - The name of the project being created
+ */
+function showWelcomeBanner(projectName) {
+  const banner = `
+╔══════════════════════════════════════════════════════════════╗
+║                                                              ║
+║   ✨  Welcome to create-0xbasinas  ✨                       ║
+║   ──────────────────────────────────────                     ║
+║   🚀  Creating Next.js 16 project: ${projectName.padEnd(20)}║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
+  `;
+  console.log(banner);
+}
+
+/**
+ * Displays a step header with a number, emoji, and decorative borders
+ * @param {number} step - The current step number
+ * @param {number} total - The total number of steps
+ * @param {string} emoji - The emoji icon for this step
+ * @param {string} message - The step message
+ */
+function showStep(step, total, emoji, message) {
+  const stepLabel = `[${String(step).padStart(2, '0')}/${total}]`;
+  const border = '─'.repeat(60);
+  console.log(`\n┌${border}┐`);
+  console.log(`│ ${stepLabel}  ${emoji}  ${message.padEnd(54)} │`);
+  console.log(`└${border}┘`);
+}
+
+/**
+ * Displays a success checkmark for a completed sub-task
+ * @param {string} message - The success message
+ */
+function showSuccess(message) {
+  console.log(`  ✔ ${message}`);
+}
+
+/**
+ * Displays a beautiful completion banner
+ * @param {string} projectName - The name of the created project
+ */
+function showCompletionBanner(projectName) {
+  const banner = `
+
+🎉🎊✨  ════════════════════════════════════════════  ✨🎊🎉
+╔══════════════════════════════════════════════════════════════╗
+║                                                              ║
+║   🏆  PROJECT CREATED SUCCESSFULLY!  🏆                      ║
+║                                                              ║
+║   📁  Project: ${projectName.padEnd(43)}║
+║   ⚡  Stack:  Next.js 16 + shadcn/ui + TypeScript           ║
+║   🎨  Theme:  Dark mode ready                                ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
+  `;
+  console.log(banner);
+}
+
+/**
  * Main function to set up a Next.js 16 project with shadcn/ui
  * Creates a fully configured Next.js app with dark mode, shadcn/ui components,
  * and performance optimizations
@@ -15,37 +76,58 @@ async function main() {
 
   // Show help if --help flag is provided
   if (process.argv.includes('--help') || process.argv.includes('-h')) {
-    console.log('Usage: create-0xbasinas <project-name>');
-    console.log('\nDescription:');
-    console.log('  Creates a Next.js 16 app with shadcn/ui pre-configured');
-    console.log('\nExample:');
-    console.log('  create-0xbasinas my-app');
-    console.log('\nFeatures:');
-    console.log('  - Next.js 16 with TypeScript');
-    console.log('  - Turbopack for faster development');
-    console.log('  - Biome for linting and formatting');
-    console.log('  - shadcn/ui with all components');
-    console.log('  - Tailwind CSS and App Router');
-    console.log('  - Dark mode support with next-themes');
+    console.log('\n╔══════════════════════════════════════════════════════════════╗');
+    console.log('║   ✨  create-0xbasinas — Help  ✨                          ║');
+    console.log('╚══════════════════════════════════════════════════════════════╝\n');
+    console.log('  ➜  Usage:   create-0xbasinas <project-name>');
+    console.log('\n  📖  Description:');
+    console.log('      Creates a Next.js 16 app with shadcn/ui pre-configured');
+    console.log('\n  💡  Example:');
+    console.log('      $ create-0xbasinas my-app');
+    console.log('\n  🎁  Features:');
+    console.log('      ⚡  Next.js 16 with TypeScript');
+    console.log('      🚀  Turbopack for faster development');
+    console.log('      🧹  Biome for linting and formatting');
+    console.log('      🎨  shadcn/ui with all components');
+    console.log('      🌬️  Tailwind CSS and App Router');
+    console.log('      🌙  Dark mode support with next-themes');
+    console.log('\n  🆘  Flags:');
+    console.log('      -h, --help     Show this help message\n');
     process.exit(0);
   }
 
   if (!projectName) {
-    console.error('Please provide a project name:');
-    console.error('create-0xbasinas <project-name>');
-    console.error('\nUse --help for more information');
+    console.error('\n╭─────────────────────────────────────────────╮');
+    console.error('│  ⚠️  Oops! Project name is required          │');
+    console.error('╰─────────────────────────────────────────────╯');
+    console.error('\n  ➜ Usage: create-0xbasinas <project-name>');
+    console.error('  ➜ Example: create-0xbasinas my-awesome-app');
+    console.error('\n  💡 Tip: Use --help flag for more information');
     process.exit(1);
   }
 
   // Validate project name
   if (!/^[a-z0-9-]+$/.test(projectName)) {
-    console.error('Error: Project name must contain only lowercase letters, numbers, and hyphens');
+    console.error('\n╭─────────────────────────────────────────────╮');
+    console.error('│  ❌  Invalid project name!                  │');
+    console.error('╰─────────────────────────────────────────────╯');
+    console.error('\n  ➜ Project name must contain only:');
+    console.error('     • lowercase letters (a-z)');
+    console.error('     • numbers (0-9)');
+    console.error('     • hyphens (-)');
+    console.error('\n  💡 Example valid names: my-app, cool-project, app123');
     process.exit(1);
   }
 
+  // Show welcome banner
+  showWelcomeBanner(projectName);
+
+  const TOTAL_STEPS = 18;
+  let currentStep = 0;
+
   try {
     // Run create-next-app with Next.js 16 specific options
-    console.log('🚀 Setting up Next.js 16 project...');
+    showStep(++currentStep, TOTAL_STEPS, '🚀', 'Setting up Next.js 16 project...');
     await execWithRetry('npx', [
       'create-next-app@latest',
       projectName,
@@ -58,12 +140,13 @@ async function main() {
       '--turbopack',     // Enable Turbopack for faster development
       '--import-alias', '@/*' // Set import alias
     ], { stdio: 'inherit' });
+    showSuccess('Next.js 16 project scaffolded!');
 
     // Change to project directory
     process.chdir(projectName);
 
     // Initialize shadcn/ui with proper configuration
-    console.log('\n🎨 Installing shadcn/ui...');
+    showStep(++currentStep, TOTAL_STEPS, '🎨', 'Installing & configuring shadcn/ui...');
     await execWithRetry('npx', [
       'shadcn@latest',
       'init',
@@ -71,125 +154,152 @@ async function main() {
       '--css-variables',  // Use CSS variables for theming
       '--base-color', 'neutral'
     ], { stdio: 'inherit' });
+    showSuccess('shadcn/ui initialized with CSS variables');
 
     // Install all shadcn/ui components
-    console.log('\n📦 Installing shadcn/ui components...');
+    showStep(++currentStep, TOTAL_STEPS, '📦', 'Installing shadcn/ui components...');
     await execWithRetry('npx', [
       'shadcn@latest',
       'add',
       '--all',           // Add all available components
       '--yes'            // Skip confirmation prompt
     ], { stdio: 'inherit' });
+    showSuccess('All shadcn/ui components installed');
 
     // Install next-themes for dark mode support
-    console.log('\n🌙 Installing dark mode support...');
+    showStep(++currentStep, TOTAL_STEPS, '🌙', 'Installing dark mode support...');
     await execWithRetry('npm', ['install', 'next-themes'], { stdio: 'inherit' });
+    showSuccess('next-themes package installed');
 
     // Install third-party libraries for performance
-    console.log('\n📦 Installing optimized third-party libraries...');
+    showStep(++currentStep, TOTAL_STEPS, '📦', 'Installing optimized third-party libraries...');
     await execWithRetry('npm', ['install', '@next/third-parties@latest', 'sharp'], { stdio: 'inherit' });
+    showSuccess('@next/third-parties & sharp installed');
 
     // Create theme provider component
-    console.log('\n🎨 Setting up theme provider...');
+    showStep(++currentStep, TOTAL_STEPS, '🎨', 'Setting up theme provider...');
     await createThemeProvider();
+    showSuccess('components/theme-provider.tsx created');
 
     // Update root layout to include theme provider
-    console.log('\n📝 Updating root layout...');
+    showStep(++currentStep, TOTAL_STEPS, '📝', 'Updating root layout...');
     await updateRootLayout();
+    showSuccess('app/layout.tsx updated');
 
     // Create mode toggle component
-    console.log('\n🔧 Creating mode toggle component...');
+    showStep(++currentStep, TOTAL_STEPS, '🔧', 'Creating mode toggle component...');
     await createModeToggle();
+    showSuccess('components/mode-toggle.tsx created');
 
     // Create mobile menu component
-    console.log('\n📱 Creating mobile menu component...');
+    showStep(++currentStep, TOTAL_STEPS, '📱', 'Creating mobile menu component...');
     await createMobileMenu();
+    showSuccess('components/mobile-menu.tsx created');
 
-    // Create header component
-    console.log('\n📋 Creating header component...');
+    // Create header & footer components
+    showStep(++currentStep, TOTAL_STEPS, '📋', 'Creating header & footer components...');
     await createHeaderComponent();
-
-    // Create footer component
-    console.log('\n📋 Creating footer component...');
     await createFooterComponent();
+    showSuccess('components/header.tsx & components/footer.tsx created');
 
     // Create hover prefetch link component
-    console.log('\n🔗 Creating hover prefetch link component...');
+    showStep(++currentStep, TOTAL_STEPS, '🔗', 'Creating hover prefetch link component...');
     await createHoverPrefetchLink();
+    showSuccess('components/hover-prefetch-link.tsx created');
 
     // Create environment variables with project name
-    console.log('\n🔧 Setting up environment variables...');
+    showStep(++currentStep, TOTAL_STEPS, '🔧', 'Setting up environment variables...');
     await createEnvFile(projectName);
+    showSuccess('.env.local configured');
 
     // Create about and contact pages
-    console.log('\n📄 Creating additional pages...');
+    showStep(++currentStep, TOTAL_STEPS, '📄', 'Creating content pages...');
     await createAboutPage();
     await createContactPage();
     await createPrivacyPage();
     await createTermsPage();
     await createGetStartedPage();
+    showSuccess('About, Contact, Privacy, Terms & Get Started pages ready');
 
     // Create essential Next.js pages
-    console.log('\n📄 Creating essential Next.js pages...');
+    showStep(++currentStep, TOTAL_STEPS, '📄', 'Creating essential Next.js pages...');
     await createNotFoundPage();
     await createErrorPage();
     await createLoadingPage();
     await createSitemap();
     await createRobots();
+    showSuccess('404, error, loading, sitemap & robots.txt ready');
 
     // Create performance optimizations
-    console.log('\n⚡ Setting up performance optimizations...');
+    showStep(++currentStep, TOTAL_STEPS, '⚡', 'Setting up performance optimizations...');
     await createOptimizedNextConfig();
     await createInstrumentation();
     await createSuspenseWrapper();
+    showSuccess('next.config, instrumentation & suspense wrapper configured');
     
     // Create render optimization components
-    console.log('\n⚡ Creating render optimization components...');
+    showStep(++currentStep, TOTAL_STEPS, '⚡', 'Creating render optimization components...');
     await createStreamingLayout();
     await createOptimizedFonts();
+    showSuccess('Streaming layout & optimized fonts ready');
 
     // Update the main page to have a simple hello message
-    console.log('\n📄 Updating main page...');
+    showStep(++currentStep, TOTAL_STEPS, '📄', 'Updating main page...');
     await updateMainPage();
+    showSuccess('app/page.tsx updated');
 
     // Create proxy middleware file for Next.js 16
-    console.log('\n🔧 Setting up proxy middleware...');
+    showStep(++currentStep, TOTAL_STEPS, '🔧', 'Setting up proxy middleware...');
     await createProxyMiddleware();
+    showSuccess('proxy.ts middleware created');
 
     // Set up Fumadocs for documentation
-    console.log('\n📚 Setting up Fumadocs documentation...');
+    showStep(++currentStep, TOTAL_STEPS, '📚', 'Setting up Fumadocs documentation...');
     await setupFumadocs();
+    showSuccess('Fumadocs documentation scaffolded');
 
     // Reorganize into route groups for isolated layouts
-    console.log('\n📁 Organizing route groups for isolated layouts...');
+    showStep(++currentStep, TOTAL_STEPS, '📁', 'Organizing route groups for isolated layouts...');
     await organizeRouteGroups();
+    showSuccess('Route groups organized');
 
-    console.log('\n✅ Setup complete! To start developing:');
-    console.log(`📁 cd ${projectName}`);
-    console.log('🚀 npm run dev');
-    console.log('\n✨ Your Next.js 16 app with shadcn/ui and dark mode is ready!');
+    // Show beautiful completion banner
+    showCompletionBanner(projectName);
+    console.log('  ➜ 📁  cd ' + projectName);
+    console.log('  ➜ 🚀  npm run dev');
+    console.log('\n  ⭐  May the code be with you! Happy hacking!\n');
 
   } catch (error) {
-    console.error('\n❌ Error during setup:', error.message);
+    console.error('\n╭─────────────────────────────────────────────╮');
+    console.error('│  💥  Oops! Something went wrong  💥        │');
+    console.error('╰─────────────────────────────────────────────╯');
+    console.error(`\n  ❌  Error: ${error.message}`);
 
     // Provide specific error guidance
     if (error.message.includes('ENOENT')) {
-      console.error('File or directory not found. Please ensure you have the necessary permissions.');
+      console.error('\n  🔍  File or directory not found.');
+      console.error('  ➜  Please ensure you have the necessary permissions.');
     } else if (error.message.includes('EACCES') || error.message.includes('EPERM')) {
-      console.error('Permission denied. Try running with appropriate permissions or in a different directory.');
+      console.error('\n  🔒  Permission denied.');
+      console.error('  ➜  Try running with appropriate permissions or in a different directory.');
     } else if (error.message.includes('ENOTFOUND') || error.message.includes('getaddrinfo')) {
-      console.error('Network error. Please check your internet connection and try again.');
+      console.error('\n  🌐  Network error detected.');
+      console.error('  ➜  Please check your internet connection and try again.');
     } else if (error.message.includes('EEXIST')) {
-      console.error(`A project with the name "${projectName}" already exists. Please choose a different name.`);
+      console.error(`\n  📁  A project with the name "${projectName}" already exists.`);
+      console.error('  ➜  Please choose a different name and try again.');
     } else {
-      console.error('An unexpected error occurred. Please try again or report the issue.');
+      console.error('\n  ❓  An unexpected error occurred.');
+      console.error('  ➜  Please try again or report the issue.');
     }
 
     // Show stack trace in debug mode
     if (process.env.DEBUG) {
-      console.error('\nStack trace:', error.stack);
+      console.error('\n  🐛  Stack trace:');
+      console.error(`  ${error.stack}`);
     }
 
+    console.error('\n  💡  Need help? Run with DEBUG=1 for more details.\n');
     process.exit(1);
   }
 }
