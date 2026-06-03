@@ -37,3 +37,7 @@ ISC
 ## Repository
 
 [GitHub](https://github.com/0xbasinas/create-0xbasinas)
+
+---
+
+✨ Edited by ShipNap while you sleep 💤
